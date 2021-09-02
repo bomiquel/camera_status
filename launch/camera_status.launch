@@ -5,8 +5,7 @@
     <!-- Play the bagfile -->
     <node pkg = "rosbag" type = "play" name = "rosbag" args = " --clock $(arg bagfile)" />
 
-    <node pkg = "camera_status" type = "camera_status" name = "camera_status" output = "screen">
+    <node pkg = "camera_status" type = "camera_status.py" name = "camera_status" output = "screen">
     </node> 
-
 
 </launch>

@@ -10,6 +10,7 @@ project(camera_status)
 find_package(catkin REQUIRED COMPONENTS
   message_filters
   roscpp
+  rospy
   sensor_msgs
   std_msgs
 )
