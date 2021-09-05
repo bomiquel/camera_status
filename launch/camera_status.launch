@@ -1,11 +1,17 @@
 <launch>
 
+    <param name ="/use_sim_time" value="true"/> 
+
     <arg name="bagfile" default = "/home/uib/bagfiles/colonia_sant_jordi/2020_11_03/11_17_42/images_2020-11-03-11-17-43_0.bag"/>
 
     <!-- Play the bagfile -->
     <node pkg = "rosbag" type = "play" name = "rosbag" args = " --clock $(arg bagfile)" />
 
     <node pkg = "camera_status" type = "camera_status.py" name = "camera_status" output = "screen">
+
+        <param name = "time_to_convergence" value = "10" />
+        <param name = "courtest_time" value = "3" />
+
     </node> 
 
 </launch>

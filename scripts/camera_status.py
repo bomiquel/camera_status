@@ -9,9 +9,6 @@ from std_msgs.msg import Float32
 from sensor_msgs.msg import CameraInfo
 
 
-TIME_TO_CONVERGENCE = 10
-
-
 class CameraStatus:
 
     def __init__(self):
@@ -31,53 +28,68 @@ class CameraStatus:
         self.camera_status_pub = rospy.Publisher('/stereo_down/camera_status', Float32, queue_size = 1)
 
         # Variables
-        self.df = pd.DataFrame(columns =['TimeStamp'])
+        self.df = pd.DataFrame(columns = ['TimeStamp'])
         self.cont_non_convergence = 1
-        self.last_callback = 'timer'
 
+        # Params
+        self.TIME_TO_CONVERGENCE = rospy.get_param('~time_to_convergence', default = 5)
+        self.COURTESY_TIME = rospy.get_param('~courtest_time', default = 3)
         
+
+    # Function that introduces in a dataframe the time stamp of each image received by the node.
+    # The time stamps will be stored in the dataframe for TIME_TO_CONVERGENCE seconds.
     def image_callback(self, l_info_msg, r_info_msg):
 
         dict = {'TimeStamp':[l_info_msg.header.stamp.secs]}
         aux_df = pd.DataFrame(dict)
         self.df = pd.concat([self.df, aux_df], ignore_index = True)
 
-        print(self.df)
-
-        if (self.df['TimeStamp'].iloc[-1] - self.df['TimeStamp'].iloc[0]) >= TIME_TO_CONVERGENCE:
+        if (self.df['TimeStamp'].iloc[-1] - self.df['TimeStamp'].iloc[0]) >= self.TIME_TO_CONVERGENCE:
 
             self.df = self.df.iloc[1: , :]
 
-        self.last_callback = 'image'
 
-
+    # Function that publishes every second the frame rate of the images. The frame rate is 
+    # calculated using the dataframe length divided by the convergence time. While the 
+    # dataframe is being filled, the length of the dataframe divided by the number of seconds
+    # the node has been running is used to calculate the frame rate. If it is detected that 
+    # the time elapsed between the last image and the current time is greater than or equal 
+    # to the courtesy time, the dataframe is restarted.
     def timer_callback(self, publication_timer):
 
-        if self.last_callback is 'image':
+        current_time = int(rospy.get_rostime().to_sec())
 
-            if self.cont_non_convergence <= TIME_TO_CONVERGENCE:
+        if len(self.df) == 0:
 
-                frame_rate = (float)(len(self.df) / self.cont_non_convergence)
-
-                self.cont_non_convergence += 1
-            
-            else:
-
-                frame_rate = (len(self.df) / TIME_TO_CONVERGENCE)
-
-        else:
-
-            if len(self.df) != 0:
-                
-                self.df = self.df.drop(self.df.index[range(len(self.df))])
-                
-            self.cont_non_convergence = 1
+            rospy.logwarn('No received images.')
 
             frame_rate = len(self.df)
 
-        self.camera_status_pub.publish(frame_rate)
+        else:
 
-        self.last_callback = 'timer'
+            if (current_time - self.df['TimeStamp'].iloc[-1]) < self.COURTESY_TIME:
+
+                if self.cont_non_convergence <= self.TIME_TO_CONVERGENCE:
+
+                    frame_rate = (float)(len(self.df) / self.cont_non_convergence)
+
+                    self.cont_non_convergence += 1
+                
+                else:
+
+                    frame_rate = (len(self.df) / self.TIME_TO_CONVERGENCE)
+
+            else:
+
+                rospy.logwarn('No received images.')
+
+                self.df = self.df.drop(self.df.index[range(len(self.df))])
+                    
+                self.cont_non_convergence = 1
+
+                frame_rate = len(self.df)
+
+        self.camera_status_pub.publish(frame_rate)
 
 
 if __name__ == '__main__':
